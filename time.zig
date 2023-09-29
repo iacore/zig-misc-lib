@@ -6,6 +6,10 @@ const t = std.testing;
 const string = []const u8;
 const time = @This();
 
+test {
+    t.refAllDeclsRecursive(time);
+}
+
 pub const DateTime = struct {
     ms: u16,
     seconds: u16,
@@ -54,8 +58,14 @@ pub const DateTime = struct {
         .era = .AD,
     };
 
+    test "unix epoch is unix epoch" {
+        try t.expectEqual(epoch_unix.toUnixMilli(), 0);
+        try t.expectEqual(epoch_unix, DateTime.initUnix(0));
+        try t.expectEqual(epoch_unix, DateTime.initUnixMs(0));
+    }
+
     test "unix epoch is Thursday" {
-        try t.expectEqual(WeekDay, .Thu, epoch_unix.weekday());
+        try t.expectEqual(WeekDay.Thu, epoch_unix.weekday());
     }
 
     pub fn eql(self: Self, other: Self) bool {
@@ -166,7 +176,16 @@ pub const DateTime = struct {
     }
 
     pub fn weekday(self: Self) WeekDay {
-        return time.weekday(self.era, self.years, self.months, self.days);
+        return switch (self.daysSinceEpoch() % 7) {
+            0 => .Thu,
+            1 => .Fri,
+            2 => .Sat,
+            3 => .Sun,
+            4 => .Mon,
+            5 => .Tue,
+            6 => .Wed,
+            else => unreachable,
+        };
     }
 
     pub fn daysThisYear(self: Self) u16 {
@@ -437,30 +456,6 @@ pub fn isLeapYear(year: u16) bool {
     if (year % 100 == 0) ret = false;
     if (year % 400 == 0) ret = true;
     return ret;
-}
-
-/// The algorithm can be found at https://en.wikipedia.org/wiki/Determination_of_the_day_of_the_week
-///     Tabular methods to calculate the day of the week
-///         Complete table: Julian and Gregorian calendars
-pub fn weekday(era: Era, year: u16, month: u16, day: u16) WeekDay {
-    if (!(era == .AD)) {
-        @panic("algorithm only supports AD");
-    }
-    const d = day + 1;
-    const m = month + 1;
-    const y = year % 10;
-    const c = (year / 10) % 4;
-    const w = (d + m + y + c) % 7;
-    return switch (w) {
-        0 => .Sat,
-        1 => .Sun,
-        2 => .Mon,
-        3 => .Tue,
-        4 => .Wed,
-        5 => .Thu,
-        6 => .Fri,
-        else => unreachable,
-    };
 }
 
 pub fn daysInYear(year: u16) u16 {
